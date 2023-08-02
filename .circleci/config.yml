@@ -1,0 +1,48 @@
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@3.1.5
+
+executors:
+  node:
+    docker:
+      - image: circleci/node:13.8.0
+  python:
+    docker:
+      - image: python:3.7.3-stretch
+  aws:
+    docker:
+      - image: amazon/aws-cli
+
+jobs:
+  test-build:
+    executor: python
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "requirements.txt" }}
+          - v1-dependencies-
+
+      - run:
+          name: install dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            make install
+
+      - run:
+          name: run lint
+          command: |
+            . venv/bin/activate
+            make lint
+
+      - save_cache:
+          key: v1-dependencies-{{ checksum "requirements.txt" }}
+          paths:
+            - ./venv
+
+workflows:
+  default:
+    jobs:
+      - test-build
