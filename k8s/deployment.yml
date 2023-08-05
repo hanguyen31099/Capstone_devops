@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capstoneproject-deployment
+  labels:
+    app: capstoneproject-app
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: capstoneproject-app
+  template:
+    metadata:
+      labels:
+        app: capstoneproject-app
+    spec:
+      containers:
+        - name: capstoneproject-app
+          image: ducha31099/devops-capstone:latest
+          ports:
+            - containerPort: 80

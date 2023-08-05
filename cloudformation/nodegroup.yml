@@ -1,0 +1,51 @@
+Parameters:
+  EnvironmentName:
+      Description: An environment name that will be prefixed to resource names
+      Type: String
+
+Resources:
+  NodeInstanceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-nodegroup-role
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+        - !Sub "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+        - !Sub "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+
+
+  EKSNodegroup:
+      Type: 'AWS::EKS::Nodegroup'
+      Properties:
+        ClusterName: !Sub ${EnvironmentName}-cluster
+        NodeRole: !GetAtt NodeInstanceRole.Arn
+        NodegroupName: !Sub ${EnvironmentName}-nodegroup
+        ScalingConfig:
+          MinSize: 2
+          DesiredSize: 4
+          MaxSize: 6
+        Subnets:
+          Fn::Split:
+            - ","
+            - Fn::ImportValue:
+                Fn::Sub: ${EnvironmentName}-PUB-NETS
+Outputs:
+  NodeInstanceRole:
+      Description: The node instance role
+      Value: !GetAtt NodeInstanceRole.Arn
+      Export:
+        Name: !Sub ${EnvironmentName}-IR
+
+  NodeGroup:
+      Description: The node group for EKS
+      Value: !Ref EKSNodegroup
+      Export:
+        Name: !Sub ${EnvironmentName}-NG

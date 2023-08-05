@@ -1,0 +1,9 @@
+- name: Copy services configuration
+  copy:
+    src: "services.yml"
+    dest: $HOME
+
+- name: Apply services configuration
+  shell: "./bin/kubectl apply -f services.yml"
+  args:
+    chdir: $HOME

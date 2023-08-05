@@ -13,6 +13,9 @@ executors:
   aws:
     docker:
       - image: amazon/aws-cli
+  docker-publisher:
+    docker:
+      - image: docker:20.10.7-git
 
 jobs:
   test-build:
@@ -42,7 +45,223 @@ jobs:
           paths:
             - ./venv
 
+  build-image:
+    executor: docker-publisher
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.7
+
+      - run:
+          name: Login Docker hub
+          command: |
+            docker login -u="$DOCKERHUB_USERNAME" -p="$DOCKERHUB_PASSWORD"
+
+      - run:
+          name: Build docker container
+          command: |
+            docker build --tag=devops-capstone .
+            docker image ls
+
+      - run:
+          name: Upload Docker to Dockerhub
+          command: |
+            echo "Docker ID and Image: devops-capstone"
+            docker tag devops-capstone $DOCKERHUB_USERNAME/devops-capstone:latest
+            docker push $DOCKERHUB_USERNAME/devops-capstone:latest
+
+  deploy-infrastructure:
+    executor: aws
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: yum install -y tar gzip
+      # - run:
+      #     name: Config network for EKS
+      #     command: |
+      #       aws cloudformation deploy \
+      #         --template-file cloudformation/network.yml \
+      #         --tags project=CapstoneProject-project \
+      #         --stack-name "CapstoneProject-eks-network" \
+      #         --region ${AWS_DEFAULT_REGION} \
+      #         --parameter-overrides file://cloudformation/network-parameters.json
+
+      # - run:
+      #     name: Config cluster for EKS
+      #     command: |
+      #       aws cloudformation deploy \
+      #         --template-file cloudformation/cluster.yml \
+      #         --tags project=CapstoneProject-project \
+      #         --stack-name "CapstoneProject-eks-cluster" \
+      #         --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM" \
+      #         --region ${AWS_DEFAULT_REGION} \
+      #         --parameter-overrides file://cloudformation/cluster-parameters.json
+
+      # - run:
+      #     name: Config Nodegroup
+      #     command: |
+      #       aws cloudformation deploy \
+      #         --template-file cloudformation/nodegroup.yml \
+      #         --tags project=CapstoneProject-project \
+      #         --stack-name "CapstoneProject-eks-nodegroup" \
+      #         --region ${AWS_DEFAULT_REGION} \
+      #         --parameter-overrides file://cloudformation/nodegroup-parameters.json \
+      #         --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM"
+
+      - run:
+          name: Config management
+          command: |
+            aws cloudformation deploy \
+              --template-file cloudformation/management.yml \
+              --tags project=CapstoneProject-project \
+              --stack-name "CapstoneProject-eks-management" \
+              --region ${AWS_DEFAULT_REGION} \
+              --parameter-overrides file://cloudformation/management-parameters.json \
+              --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM"
+
+      - run:
+          name: Extract the IPs of the management instances for Ansible
+          command: |
+            echo [management] > ~/inventory.txt
+            aws ec2 describe-instances \
+              --region "${AWS_DEFAULT_REGION}" \
+              --query 'Reservations[*].Instances[*].PublicIpAddress' \
+              --filters "Name=tag:Name,Values=CapstoneProject-management" \
+              --output text >> ~/inventory.txt
+            cat ~/inventory.txt
+
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - inventory.txt
+
+  config-infrastructure:
+    docker:
+      - image: python:3.9.0-alpine
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "3c:4d:ec:34:58:09:68:e1:57:3c:da:23:e3:56:cd:98"
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update ansible
+      # - run:
+      #     name: Configure server
+      #     command: |
+      #       cat ~/inventory.txt
+      #       cd .circleci/ansible
+      #       ansible-playbook -i ~/inventory.txt configure-server.yml
+
+      - run:
+          name: Configure cluster
+          command: |
+            cat ~/inventory.txt
+            cd .circleci/ansible
+            ansible-playbook -i ~/inventory.txt configure-cluster.yml
+
+      - run:
+          name: Wait for LoadBalancer's domain to become reachable
+          command: |
+            echo "Wait 60 seconds..."
+            sleep 60
+
+      - run:
+          name: get elb dns
+          command: |
+            cat ~/inventory.txt
+            cd .circleci/ansible
+            ansible-playbook -i ~/inventory.txt get-elb-dns.yml
+            cat ~/elb_dns.txt
+
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - elb_dns.txt
+
+
+      # - run:
+      #     name: install dependencies and cliv2
+      #     command: |
+      #       sudo apt-get update && sudo apt-get install -yy less
+      #       curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      #       unzip awscliv2.zip
+      #       sudo ./aws/install
+      # - run:
+      #     name: install kubectl
+      #     command: |
+      #       curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.26.2/2023-03-17/bin/linux/amd64/kubectl
+      #       curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.26.2/2023-03-17/bin/linux/amd64/kubectl.sha256
+      #       sha256sum -c kubectl.sha256
+      #       openssl sha1 -sha256 kubectl
+      #       chmod +x ./kubectl
+      #       mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$PATH:$HOME/bin
+      #       echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
+      #       kubectl version --short --client
+      # - run:
+      #     name: create AWS profile
+      #     command: |
+      #       aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+      #       aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+      #       aws configure set region ${AWS_DEFAULT_REGION}
+      # - run:
+      #     name: update kubeconfig
+      #     command: |
+      #       aws eks update-kubeconfig --region us-east-1 --name "CapstoneProject-cluster"
+      # - run:
+      #     name: deployment app
+      #     command: |
+      #       kubectl apply -f deployment.yml
+      # - run:
+      #     name: attach to elb
+      #     command: |
+      #       kubectl apply -f services.yml
+      # - run:
+      #     name: Wait for LoadBalancer's domain to become reachable
+      #     command: |
+      #       echo "Wait 60 seconds..."
+      #       sleep 60
+      # - run:
+      #     name: get pods and node
+      #     command: |
+      #       kubectl get pods --output=wide
+      #       kubectl get nodes --output=wide
+      # - run:
+      #     name: get elb url
+      #     command: |
+      #       touch elb_dns.txt
+      #       kubectl get svc capstoneproject-service > elb_dns.txt
+      #       cat elb_dns.txt
+      # - run:
+      #     name: deploy-docker
+      #     command: |
+      #       kubectl set image deployments/capstoneproject-deployment capstoneproject-app=ducha31099/devops-capstone:latest
+      # - run:
+      #     name: Check if deployment ist successful
+      #     command: |
+      #       kubectl rollout status deployments/capstoneproject-deployment
+
+
 workflows:
   default:
     jobs:
-      - test-build
+      # - test-build
+      # - build-image:
+      #     filters:
+      #       branches:
+      #         only:
+      #           - master
+      #     requires:
+      #       - "test-build"
+      - deploy-infrastructure
+      - config-infrastructure:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - "deploy-infrastructure"
