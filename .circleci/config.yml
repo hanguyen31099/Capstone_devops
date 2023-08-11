@@ -184,30 +184,34 @@ jobs:
             - elb_dns.txt
 
 
-      # - run:
-      #     name: install dependencies and cliv2
-      #     command: |
-      #       sudo apt-get update && sudo apt-get install -yy less
-      #       curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-      #       unzip awscliv2.zip
-      #       sudo ./aws/install
-      # - run:
-      #     name: install kubectl
-      #     command: |
-      #       curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.26.2/2023-03-17/bin/linux/amd64/kubectl
-      #       curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.26.2/2023-03-17/bin/linux/amd64/kubectl.sha256
-      #       sha256sum -c kubectl.sha256
-      #       openssl sha1 -sha256 kubectl
-      #       chmod +x ./kubectl
-      #       mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$PATH:$HOME/bin
-      #       echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
-      #       kubectl version --short --client
-      # - run:
-      #     name: create AWS profile
-      #     command: |
-      #       aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
-      #       aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
-      #       aws configure set region ${AWS_DEFAULT_REGION}
+  Verify-pod-and-rolling-deployment:
+    executor: node
+    steps:
+      - checkout
+      - run:
+          name: install dependencies and cliv2
+          command: |
+            sudo apt-get update && sudo apt-get install -yy less
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+      - run:
+          name: install kubectl
+          command: |
+            curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.26.2/2023-03-17/bin/linux/amd64/kubectl
+            curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.26.2/2023-03-17/bin/linux/amd64/kubectl.sha256
+            sha256sum -c kubectl.sha256
+            openssl sha1 -sha256 kubectl
+            chmod +x ./kubectl
+            mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$PATH:$HOME/bin
+            echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
+            kubectl version --short --client
+      - run:
+          name: create AWS profile
+          command: |
+            aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+            aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+            aws configure set region ${AWS_DEFAULT_REGION}
       # - run:
       #     name: update kubeconfig
       #     command: |
@@ -225,25 +229,25 @@ jobs:
       #     command: |
       #       echo "Wait 60 seconds..."
       #       sleep 60
-      # - run:
-      #     name: get pods and node
-      #     command: |
-      #       kubectl get pods --output=wide
-      #       kubectl get nodes --output=wide
-      # - run:
-      #     name: get elb url
-      #     command: |
-      #       touch elb_dns.txt
-      #       kubectl get svc capstoneproject-service > elb_dns.txt
-      #       cat elb_dns.txt
-      # - run:
-      #     name: deploy-docker
-      #     command: |
-      #       kubectl set image deployments/capstoneproject-deployment capstoneproject-app=ducha31099/devops-capstone:latest
-      # - run:
-      #     name: Check if deployment ist successful
-      #     command: |
-      #       kubectl rollout status deployments/capstoneproject-deployment
+      - run:
+          name: get pods and node
+          command: |
+            kubectl get pods --output=wide
+            kubectl get nodes --output=wide
+      - run:
+          name: get elb url
+          command: |
+            touch elb_dns.txt
+            kubectl get svc capstoneproject-service > elb_dns.txt
+            cat elb_dns.txt
+      - run:
+          name: deploy-docker
+          command: |
+            kubectl set image deployments/capstoneproject-deployment capstoneproject-app=ducha31099/devops-capstone:latest
+      - run:
+          name: Check if deployment ist successful
+          command: |
+            kubectl rollout status deployments/capstoneproject-deployment
 
 
 workflows:
@@ -257,11 +261,18 @@ workflows:
       #           - master
       #     requires:
       #       - "test-build"
-      - deploy-infrastructure
-      - config-infrastructure:
-          filters:
-            branches:
-              only:
-                - master
-          requires:
-            - "deploy-infrastructure"
+      # - deploy-infrastructure
+      # - config-infrastructure:
+      #     filters:
+      #       branches:
+      #         only:
+      #           - master
+      #     requires:
+      #       - "deploy-infrastructure"
+      - Verify-pod-and-rolling-deployment
+          # filters:
+          #   branches:
+          #     only:
+          #       - master
+          # requires:
+          #   - "config-infrastructure"
