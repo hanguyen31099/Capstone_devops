@@ -77,47 +77,47 @@ jobs:
       - run:
           name: Install dependencies
           command: yum install -y tar gzip
-      # - run:
-      #     name: Config network for EKS
-      #     command: |
-      #       aws cloudformation deploy \
-      #         --template-file cloudformation/network.yml \
-      #         --tags project=CapstoneProject-project \
-      #         --stack-name "CapstoneProject-eks-network" \
-      #         --region ${AWS_DEFAULT_REGION} \
-      #         --parameter-overrides file://cloudformation/network-parameters.json
+      - run:
+          name: Config network for EKS
+          command: |
+            aws cloudformation deploy \
+              --template-file .circleci/cloudformation/network.yml \
+              --tags project=CapstoneProject-project \
+              --stack-name "CapstoneProject-eks-network" \
+              --region ${AWS_DEFAULT_REGION} \
+              --parameter-overrides file://.circleci/cloudformation/network-parameters.json
 
-      # - run:
-      #     name: Config cluster for EKS
-      #     command: |
-      #       aws cloudformation deploy \
-      #         --template-file cloudformation/cluster.yml \
-      #         --tags project=CapstoneProject-project \
-      #         --stack-name "CapstoneProject-eks-cluster" \
-      #         --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM" \
-      #         --region ${AWS_DEFAULT_REGION} \
-      #         --parameter-overrides file://cloudformation/cluster-parameters.json
+      - run:
+          name: Config cluster for EKS
+          command: |
+            aws cloudformation deploy \
+              --template-file .circleci/cloudformation/cluster.yml \
+              --tags project=CapstoneProject-project \
+              --stack-name "CapstoneProject-eks-cluster" \
+              --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM" \
+              --region ${AWS_DEFAULT_REGION} \
+              --parameter-overrides file://.circleci/cloudformation/cluster-parameters.json
 
-      # - run:
-      #     name: Config Nodegroup
-      #     command: |
-      #       aws cloudformation deploy \
-      #         --template-file cloudformation/nodegroup.yml \
-      #         --tags project=CapstoneProject-project \
-      #         --stack-name "CapstoneProject-eks-nodegroup" \
-      #         --region ${AWS_DEFAULT_REGION} \
-      #         --parameter-overrides file://cloudformation/nodegroup-parameters.json \
-      #         --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM"
+      - run:
+          name: Config Nodegroup
+          command: |
+            aws cloudformation deploy \
+              --template-file .circleci/cloudformation/nodegroup.yml \
+              --tags project=CapstoneProject-project \
+              --stack-name "CapstoneProject-eks-nodegroup" \
+              --region ${AWS_DEFAULT_REGION} \
+              --parameter-overrides file://.circleci/cloudformation/nodegroup-parameters.json \
+              --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM"
 
       - run:
           name: Config management
           command: |
             aws cloudformation deploy \
-              --template-file cloudformation/management.yml \
+              --template-file .circleci/cloudformation/management.yml \
               --tags project=CapstoneProject-project \
               --stack-name "CapstoneProject-eks-management" \
               --region ${AWS_DEFAULT_REGION} \
-              --parameter-overrides file://cloudformation/management-parameters.json \
+              --parameter-overrides file://.circleci/cloudformation/management-parameters.json \
               --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM"
 
       - run:
@@ -150,12 +150,12 @@ jobs:
           name: Install dependencies
           command: |
             apk add --update ansible
-      # - run:
-      #     name: Configure server
-      #     command: |
-      #       cat ~/inventory.txt
-      #       cd .circleci/ansible
-      #       ansible-playbook -i ~/inventory.txt configure-server.yml
+      - run:
+          name: Configure server
+          command: |
+            cat ~/inventory.txt
+            cd .circleci/ansible
+            ansible-playbook -i ~/inventory.txt configure-server.yml
 
       - run:
           name: Configure cluster
@@ -212,23 +212,15 @@ jobs:
             aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
             aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
             aws configure set region ${AWS_DEFAULT_REGION}
-      # - run:
-      #     name: update kubeconfig
-      #     command: |
-      #       aws eks update-kubeconfig --region us-east-1 --name "CapstoneProject-cluster"
-      # - run:
-      #     name: deployment app
-      #     command: |
-      #       kubectl apply -f deployment.yml
-      # - run:
-      #     name: attach to elb
-      #     command: |
-      #       kubectl apply -f services.yml
-      # - run:
-      #     name: Wait for LoadBalancer's domain to become reachable
-      #     command: |
-      #       echo "Wait 60 seconds..."
-      #       sleep 60
+      - run:
+          name: update kubeconfig
+          command: |
+            aws eks update-kubeconfig --region us-east-1 --name "CapstoneProject-cluster"
+      - run:
+          name: Wait for LoadBalancer's domain to become reachable
+          command: |
+            echo "Wait 60 seconds..."
+            sleep 60
       - run:
           name: get pods and node
           command: |
@@ -237,9 +229,8 @@ jobs:
       - run:
           name: get elb url
           command: |
-            touch elb_dns.txt
-            kubectl get svc capstoneproject-service > elb_dns.txt
-            cat elb_dns.txt
+            kubectl get svc capstoneproject-service
+
       - run:
           name: deploy-docker
           command: |
@@ -253,26 +244,27 @@ jobs:
 workflows:
   default:
     jobs:
-      # - test-build
-      # - build-image:
-      #     filters:
-      #       branches:
-      #         only:
-      #           - master
-      #     requires:
-      #       - "test-build"
-      # - deploy-infrastructure
-      # - config-infrastructure:
-      #     filters:
-      #       branches:
-      #         only:
-      #           - master
-      #     requires:
-      #       - "deploy-infrastructure"
-      - Verify-pod-and-rolling-deployment
-          # filters:
-          #   branches:
-          #     only:
-          #       - master
-          # requires:
-          #   - "config-infrastructure"
+      - test-build
+      - build-image:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - "test-build"
+      - deploy-infrastructure
+      - config-infrastructure:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - "build-image"
+            - "deploy-infrastructure"
+      - Verify-pod-and-rolling-deployment:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - "config-infrastructure"
