@@ -20,9 +20,9 @@ In this project you will apply the skills and knowledge which were developed thr
 
 ## Url
 
-Github:         https://github.com/hanguyen31099/Capstone_devops
-Docker hub:     https://hub.docker.com/repository/docker/ducha31099/devops-capstone/general
-Load balancers: http://a29ee6554f89b4e02aeca3c87e610460-229439153.us-east-1.elb.amazonaws.com
++ Github:         https://github.com/hanguyen31099/Capstone_devops
++ Docker hub:     https://hub.docker.com/repository/docker/ducha31099/devops-capstone/general
++ Load balancers: http://a29ee6554f89b4e02aeca3c87e610460-229439153.us-east-1.elb.amazonaws.com
 
 ## Attachment screenshot
 
@@ -44,6 +44,6 @@ Load balancers: http://a29ee6554f89b4e02aeca3c87e610460-229439153.us-east-1.elb.
 ![Pod Status](./screenshot/pod_status_external_IP.png)
 
 
-### Public LB DNS:
+### Public LB DNS: http://a29ee6554f89b4e02aeca3c87e610460-229439153.us-east-1.elb.amazonaws.com
 
 ![Access after deployment](./screenshot/access_after_deployment.png)
