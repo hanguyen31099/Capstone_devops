@@ -28,22 +28,22 @@ Load balancers: http://a29ee6554f89b4e02aeca3c87e610460-229439153.us-east-1.elb.
 
 ### CircleCi - CI/CD Pipelines
 
-![CircleCi Pipeline](./screenshot/circleci_pipeline.PNG)
+![CircleCi Pipeline](./screenshot/circleci_pipeline.png)
 
 
 ### Linting using Pylint and Hadolint
 
-![Lint Fail](./screenshot/lint_fail.PNG)
+![Lint Fail](./screenshot/lint_fail.png)
 
 
-![Lint Success](./screenshot/lint_success.PNG)
+![Lint Success](./screenshot/lint_success.png)
 
 
 ### Pod status and external IP
 
-![Pod Status](./screenshot/pod_status_external_IP.PNG)
+![Pod Status](./screenshot/pod_status_external_IP.png)
 
 
 ### Public LB DNS:
 
-![Access after deployment](./screenshot/access_after_deployment.PNG)
+![Access after deployment](./screenshot/access_after_deployment.png)
